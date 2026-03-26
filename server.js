@@ -20,7 +20,14 @@ io.on('connection', (socket) => {
   socket.on('login', (data, callback) => {
     if (data.password === GAME_PASSWORD) {
       socket.authenticated = true;
-      callback({ success: true });
+      let autoSelectObj = null;
+      if (waitingPlayer && waitingPlayer.character) {
+        autoSelectObj = {
+          charToPick: waitingPlayer.character === 'judy' ? 'nick' : 'judy',
+          nameToPick: waitingPlayer.playerName === 'Fatmanur' ? 'Yusuf Eren' : 'Fatmanur'
+        };
+      }
+      callback({ success: true, autoSelect: autoSelectObj });
     } else {
       callback({ success: false, message: 'Wrong password!' });
     }
@@ -36,6 +43,11 @@ io.on('connection', (socket) => {
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit('waiting', { message: 'Rakip bekleniyor...' });
+      
+      socket.broadcast.emit('autoSelect', {
+        charToPick: data.character === 'judy' ? 'nick' : 'judy',
+        nameToPick: data.playerName === 'Fatmanur' ? 'Yusuf Eren' : 'Fatmanur'
+      });
     } else {
       const p1 = waitingPlayer;
       const p2 = socket;

@@ -129,6 +129,14 @@ const restartBtn=document.getElementById('restartBtn');
 
 let myPlayerName = '';  // 'Fatmanur' or 'Yusuf Eren'
 let myCharacter = '';   // 'judy' or 'nick'
+let autoSelectData = null;
+
+socket.on('autoSelect', (data) => {
+  autoSelectData = data;
+  if (loginScreen.classList.contains('hidden') && myCharacter === '') {
+      selectChar(data.charToPick);
+  }
+});
 
 // Enter key on password
 pwdInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
@@ -139,7 +147,14 @@ function tryLogin(){
   socket.emit('login', { password: pwd }, (res) => {
     if(res.success){
       loginScreen.classList.add('hidden');
-      setTimeout(()=> charScreen.classList.remove('hidden'), 400);
+      if (res.autoSelect) autoSelectData = res.autoSelect;
+      if (autoSelectData && myCharacter === '') {
+         selectChar(autoSelectData.charToPick);
+      } else {
+         setTimeout(()=>{
+            if (myCharacter === '') charScreen.classList.remove('hidden');
+         }, 400);
+      }
     } else {
       loginError.textContent = '❌ Yanlış şifre!';
       pwdInput.value = '';
@@ -362,7 +377,7 @@ socket.on('opponentFired', (data)=>{
   if(isBig)shooter.powers.POWER--;
   if(isStink)shooter.powers.STINK--;
   proj=new Projectile(shooter.x,shooter.y-PH,Math.cos(ang)*pow,-Math.sin(ang)*pow,shooter.projColor,wind,isBig,isStink);
-  if(data.activePower!=='DOUBLE')shooter.activePower=null;
+  shooter.activePower=null;
   localShot=false;
   gameState=ST.ANIM;
 });
@@ -446,12 +461,13 @@ function fire(){
   let pow=Math.min(dist*POW_SC,MAX_POW);
   const ang=Math.atan2(dy,dx);
   const isBig=curP.activePower==='POWER',isStink=curP.activePower==='STINK';
-  socket.emit('fire',{pow,ang,activePower:curP.activePower});
-  if(curP.activePower==='DOUBLE'){curP.throwsLeft=2;curP.powers.DOUBLE--}
+  const firedPower=curP.activePower;
+  socket.emit('fire',{pow,ang,activePower:firedPower});
+  if(firedPower==='DOUBLE'){curP.throwsLeft=2;curP.powers.DOUBLE--}
   if(isBig)curP.powers.POWER--;
   if(isStink)curP.powers.STINK--;
   proj=new Projectile(curP.x,curP.y-PH,Math.cos(ang)*pow,-Math.sin(ang)*pow,curP.projColor,wind,isBig,isStink);
-  if(curP.activePower!=='DOUBLE')curP.activePower=null;
+  curP.activePower=null;
   localShot=true; // this is OUR shot
   gameState=ST.ANIM;
 }
