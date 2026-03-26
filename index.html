@@ -196,6 +196,9 @@ const POWERS={
 };
 
 // ── CLASSES ──
+const FATMANUR_QUOTES = ["ne kadar kötü olabilir ki", "deneyimmm", "ucunda ölüm yok ya", "iyiyse cennete gitsin", "sağ elinle tutsana yaa"];
+const YUSUF_QUOTES = ["evet mi hayır mı", "falafeli çok beğendim aşkım", "bağcılarda mı oturuyorsun şarjım 94 eve geçince yazarım", "ilke vakfından selamlar"];
+
 class Player{
   constructor(name,x,img,projColor){
     this.name=name;this.x=x;this.y=GROUND;this.img=img;
@@ -203,6 +206,7 @@ class Player{
     this.flashTimer=0;this.powers={DOUBLE:1,POWER:1,STINK:1,HEAL:1};
     this.activePower=null;this.throwsLeft=1;
     this.breathOffset=Math.random()*Math.PI*2;
+    this.speechText='';this.speechTimer=0;
   }
   draw(){
     const flash=this.flashTimer>0&&Math.floor(this.flashTimer*15)%2===0;
@@ -224,6 +228,12 @@ class Player{
     ctx.fillText(this.name,this.x,this.y-sh+8);
     ctx.restore();
     if(this.flashTimer>0)this.flashTimer-=0.016;
+    if(this.speechTimer>0){
+      this.speechTimer--;
+      ctx.globalAlpha=Math.min(1,this.speechTimer/30);
+      drawSpeechBubble(this.x,this.y-sh-45,this.speechText);
+      ctx.globalAlpha=1;
+    }
   }
   getBounds(){const sw=PW*.8;return{left:this.x-sw/2,right:this.x+sw/2,top:this.y-PH*1.2,bottom:this.y}}
 }
@@ -371,6 +381,12 @@ socket.on('opponentUsedPower', (key)=>{
 socket.on('opponentFired', (data)=>{
   const shooter = curP;
   let pow=data.pow, ang=data.ang;
+  
+  const quotes = shooter.name==='Fatmanur'?FATMANUR_QUOTES:YUSUF_QUOTES;
+  const qIdx = data.quoteIdx !== undefined ? data.quoteIdx : Math.floor(Math.random()*quotes.length);
+  shooter.speechText = quotes[qIdx];
+  shooter.speechTimer = 180;
+
   const isBig=data.activePower==='POWER';
   const isStink=data.activePower==='STINK';
   if(data.activePower==='DOUBLE'){shooter.throwsLeft=2;shooter.powers.DOUBLE--}
@@ -462,7 +478,13 @@ function fire(){
   const ang=Math.atan2(dy,dx);
   const isBig=curP.activePower==='POWER',isStink=curP.activePower==='STINK';
   const firedPower=curP.activePower;
-  socket.emit('fire',{pow,ang,activePower:firedPower});
+  const quotes=curP.name==='Fatmanur'?FATMANUR_QUOTES:YUSUF_QUOTES;
+  const qIdx=Math.floor(Math.random()*quotes.length);
+  socket.emit('fire',{pow,ang,activePower:firedPower,quoteIdx:qIdx});
+  
+  curP.speechText = quotes[qIdx];
+  curP.speechTimer = 180;
+
   if(firedPower==='DOUBLE'){curP.throwsLeft=2;curP.powers.DOUBLE--}
   if(isBig)curP.powers.POWER--;
   if(isStink)curP.powers.STINK--;
@@ -680,6 +702,28 @@ function drawGameOver(){
 }
 
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
+
+function drawSpeechBubble(x,y,text){
+  ctx.save();ctx.font='bold 14px Outfit,sans-serif';
+  const pad=10,maxW=180;
+  const words=text.split(' '),lines=[];
+  let cur=words[0];
+  for(let i=1;i<words.length;i++){
+    const w=ctx.measureText(cur+" "+words[i]).width;
+    if(w<maxW) cur+=" "+words[i];
+    else {lines.push(cur);cur=words[i];}
+  }
+  lines.push(cur);
+  const w=Math.max(...lines.map(l=>ctx.measureText(l).width))+pad*2;
+  const h=lines.length*18+pad*2;
+  const bx=x-w/2,by=y-h-10;
+  ctx.fillStyle='rgba(255,255,255,0.95)';ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=2;
+  roundRect(bx,by,w,h,10);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x-8,by+h);ctx.lineTo(x,by+h+12);ctx.lineTo(x+8,by+h);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle='#2d3436';ctx.textAlign='center';ctx.textBaseline='top';
+  lines.forEach((l,i)=>ctx.fillText(l,x,by+pad+i*18));
+  ctx.restore();
+}
 
 // ── MAIN LOOP ──
 function loop(){
