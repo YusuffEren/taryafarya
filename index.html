@@ -103,6 +103,7 @@ canvas{border:2px solid rgba(255,255,255,.1);border-radius:14px;cursor:crosshair
 </div>
 
 <!-- ═══ GAME AREA ═══ -->
+<audio id="bgMusic" src="bihaber.mp3" loop preload="auto"></audio>
 <div id="gameUI">
   <canvas id="c" width="900" height="600"></canvas>
   <div id="hud">
@@ -146,6 +147,9 @@ function tryLogin(){
   loginError.textContent = '';
   socket.emit('login', { password: pwd }, (res) => {
     if(res.success){
+      const bgm = document.getElementById('bgMusic');
+      bgm.volume = 0.4;
+      bgm.play().catch(e=>console.log("Audio playback failed", e));
       loginScreen.classList.add('hidden');
       if (res.autoSelect) autoSelectData = res.autoSelect;
       if (autoSelectData && myCharacter === '') {
